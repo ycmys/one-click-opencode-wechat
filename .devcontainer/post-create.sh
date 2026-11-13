@@ -20,6 +20,33 @@ fi
 
 MODEL="${OPENCODE_MODEL:-opencode/minimax-m2.5-free}"
 
+OPENCODE_CONFIG="$HOME/.config/opencode/opencode.jsonc"
+if [ -f "$OPENCODE_CONFIG" ]; then
+  log "Keeping existing $OPENCODE_CONFIG"
+else
+  log "Writing $OPENCODE_CONFIG (auto-approve tools)"
+  mkdir -p "$(dirname "$OPENCODE_CONFIG")"
+  cat > "$OPENCODE_CONFIG" <<'EOF'
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "read": "allow",
+    "glob": "allow",
+    "grep": "allow",
+    "list": "allow",
+    "edit": "allow",
+    "bash": "allow",
+    "task": "allow",
+    "skill": "allow",
+    "webfetch": "allow",
+    "websearch": "allow",
+    "todowrite": "allow",
+    "external_directory": "allow"
+  }
+}
+EOF
+fi
+
 log "Writing ~/.weclaw/config.json (model=$MODEL)"
 mkdir -p "$HOME/.weclaw/workspace"
 
