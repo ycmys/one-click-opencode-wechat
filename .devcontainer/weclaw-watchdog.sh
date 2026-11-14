@@ -40,7 +40,27 @@ rotate() {
 is_up() {
   local p
   p=$(cat "$PIDFILE" 2>/dev/null || true)
-  [ -n "$p" ] && kill -0 "$p" 2>/dev/null && "$WECLAW" status >/dev/null 2>&1
+  [ -n "$p" ] || return 1
+  kill -0 "$p" 2>/dev/null || return 1
+  # Guard against pid reuse after a container restart.
+  [ -r "/proc/$p/cmdline" ] || return 1
+  tr '\0' ' ' <"/proc/$p/cmdline" | grep -q 'weclaw' || return 1
+  return 0
+}
+
+# Start weclaw directly in foreground and detach it ourselves.
+# Do NOT use `weclaw start` (background mode): runDaemon() -> stopAllWeclaw()
+# runs `pkill -f "<resolved-exe> start"`. When weclaw is invoked via an
+# absolute path, that pattern also matches the invoking `weclaw start`
+# process itself, so the starter is SIGTERMed (exit 143) before the daemon is
+# spawned and weclaw never comes up. Running `start -f` skips that path.
+start_weclaw() {
+  # Clear any orphaned instances not tracked by the pid file.
+  pkill -f "$WECLAW start" 2>/dev/null || true
+  sleep 1
+  rm -f "$PIDFILE"
+  "$WECLAW" start -f >>"$LOG" 2>&1 </dev/null &
+  printf '%s' "$!" >"$PIDFILE"
 }
 
 log "started (pid=$$, interval=${INTERVAL}s)"
@@ -49,13 +69,12 @@ trap 'rm -f "$WDPIDFILE"; log "stopping (signal)"; exit 0' TERM INT
 while true; do
   if ! is_up; then
     log "weclaw down; starting"
-    "$WECLAW" start >>"$LOG" 2>&1
-    rc=$?
+    start_weclaw
     sleep 3
     if is_up; then
-      log "weclaw up again (rc=$rc)"
+      log "weclaw up again (pid=$(cat "$PIDFILE" 2>/dev/null))"
     else
-      log "weclaw still down (rc=$rc); retrying in ${INTERVAL}s"
+      log "weclaw still down; retrying in ${INTERVAL}s"
     fi
   fi
   rotate

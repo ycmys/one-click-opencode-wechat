@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Idempotently ensure weclaw and its watchdog are running.
+# Idempotently ensure the weclaw watchdog is running.
+# The watchdog owns starting/restarting weclaw (see weclaw-watchdog.sh).
 # Safe to call from shell init / Codespaces postStartCommand.
 set -u
 
@@ -18,9 +19,5 @@ if [ -f "$WDPID" ]; then
   fi
 fi
 
-# Bring weclaw up first for a fast recovery, then start the watchdog.
-if ! "$WECLAW" status >/dev/null 2>&1; then
-  "$WECLAW" start >/dev/null 2>&1 || true
-fi
-
+# The watchdog's first loop iteration starts weclaw immediately.
 setsid "$WD" >/dev/null 2>&1 </dev/null &
