@@ -64,7 +64,22 @@ cat > "$HOME/.weclaw/config.json" <<EOF
 }
 EOF
 
+log "Installing weclaw keepalive (watchdog + shell autostart)"
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+install -m 0755 "$REPO_DIR/.devcontainer/weclaw-watchdog.sh" "$HOME/.weclaw/watchdog.sh"
+install -m 0755 "$REPO_DIR/.devcontainer/weclaw-autostart.sh" "$HOME/.weclaw/autostart.sh"
+if ! grep -q 'weclaw keepalive' "$HOME/.bashrc" 2>/dev/null; then
+  cat >> "$HOME/.bashrc" <<'BASHRC'
+
+# weclaw keepalive: auto-start bridge/watchdog on shell start
+if [ "${CODESPACES:-}" = "true" ] && [ -x "$HOME/.weclaw/autostart.sh" ]; then
+  "$HOME/.weclaw/autostart.sh" >/dev/null 2>&1 || true
+fi
+BASHRC
+fi
+"$HOME/.weclaw/autostart.sh" >/dev/null 2>&1 || true
+
 log "Done"
 printf '  Start OpenCode: %s\n' "$OPENCODE_BIN"
-printf '  Start bridge:   weclaw\n'
+printf '  Start bridge:   weclaw (kept alive by ~/.weclaw/watchdog.sh)\n'
 printf '  Change model:   OPENCODE_MODEL=<provider/model> bash .devcontainer/post-create.sh\n'
